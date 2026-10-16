@@ -1,0 +1,52 @@
+<Window x:Class="ChatHub.Views.SiteEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:ChatHub.Views"
+        Title="{Binding Title}" Height="300" Width="560"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Icon="/assets/favicon.ico"
+        ShowInTaskbar="False"
+        Background="#F3F4F6">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <views:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="名称" Foreground="#374151" Margin="0,0,0,4" />
+        <TextBox Grid.Row="1" x:Name="NameBox" Height="30" Padding="6,0" VerticalContentAlignment="Center"
+                 MaxLength="60"
+                 Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}"
+                 ToolTip="显示在工具栏按钮上；留空则自动使用域名" />
+
+        <TextBlock Grid.Row="2" Text="网址" Foreground="#374151" Margin="0,14,0,4" />
+        <TextBox Grid.Row="3" x:Name="UrlBox" Height="30" Padding="6,0" VerticalContentAlignment="Center"
+                 Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                 ToolTip="支持省略 https://，例如 chat.deepseek.com" />
+
+        <StackPanel Grid.Row="4" Margin="0,14,0,0">
+            <TextBlock Text="请输入合法的 http / https 网址，例如 https://chat.deepseek.com/"
+                       Foreground="#9CA3AF" FontSize="11" TextWrapping="Wrap"
+                       Visibility="{Binding HasValidationMessage, Converter={StaticResource InverseBoolToVisibility}}" />
+            <TextBlock Text="{Binding ValidationMessage}" Foreground="#B91C1C" TextWrapping="Wrap"
+                       Visibility="{Binding HasValidationMessage, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button x:Name="OkButton" Content="保存" MinWidth="86" Height="30" Margin="0,0,8,0"
+                    IsDefault="True" Click="OnOkClick" />
+            <Button Content="取消" MinWidth="86" Height="30" IsCancel="True" Click="OnCancelClick" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,196 @@
+<Window x:Class="ChatHub.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:ChatHub.Views"
+        Title="ChatHub — AI 聊天集合"
+        Height="820" Width="1200" MinHeight="520" MinWidth="820"
+        WindowStartupLocation="CenterScreen"
+        Icon="assets/favicon.ico"
+        Background="#F3F4F6">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <views:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+
+        <Style x:Key="ToolButton" TargetType="Button">
+            <Setter Property="MinWidth" Value="60" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Foreground" Value="#1F2937" />
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#D1D5DB" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                CornerRadius="5"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#EEF2FF" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#A5B4FC" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 工具栏站点条目：一个条目对应一个已添加的网址，选中态高亮 -->
+        <Style x:Key="SiteItemContainer" TargetType="ListBoxItem">
+            <!--
+                必须是 TwoWay：鼠标点击最终走 ListBox.NotifyListItemClicked，
+                那里用 SetCurrentValueInternal 把 IsSelected 置为 true；若这里绑成 OneWay，
+                绑定会挡住这次写入，选中会被立刻回退。TwoWay 同时把点击写回 IsActive。
+            -->
+            <Setter Property="IsSelected" Value="{Binding IsActive, Mode=TwoWay}" />
+            <Setter Property="ToolTip" Value="{Binding Url}" />
+            <!--
+                必须保持可聚焦（True）。ListBoxItem 的鼠标按下处理是：
+                    if (Selector.UiGetIsSelectable(this) && Focus()) parent.NotifyListItemClicked(...)
+                也就是说「选中」被挂在 Focus() 成功的分支里。Focusable=False 会让 Focus() 返回 false，
+                整段选中逻辑被直接跳过：鼠标事件确实到达了条目（PreviewMouseLeftButtonDown 有日志），
+                但 IsSelected 不变、SelectionChanged 永不触发，表现为「点站点按钮没反应」。
+                不想要虚线焦点框就用 FocusVisualStyle 去掉，不要用 Focusable=False。
+            -->
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Margin" Value="3,2" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd"
+                                CornerRadius="15"
+                                Background="#FFFFFF"
+                                BorderBrush="#D1D5DB"
+                                BorderThickness="1"
+                                Padding="14,0"
+                                Height="30"
+                                MinWidth="72">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#EEF2FF" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#A5B4FC" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2563EB" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#1D4ED8" />
+                                <Setter Property="TextElement.Foreground" Value="#FFFFFF" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="SiteItemTemplate">
+            <TextBlock Text="{Binding Name}"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="180"
+                       Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- 行 0：导航按钮 + 全部已添加站点 -->
+        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="6,5">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right" Style="{StaticResource ToolButton}" MinWidth="96"
+                        Content="⚙ 管理站点" Click="OnManageSitesClick"
+                        ToolTip="添加、修改、查询、删除站点（清单文件：%AppData%\ChatHub\sites.txt）" />
+                <Border DockPanel.Dock="Right" Width="1" Margin="8,4" Background="#E5E7EB" />
+
+                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="← 后退"
+                        Command="{Binding GoBackCommand}" ToolTip="后退" />
+                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="→ 前进"
+                        Command="{Binding GoForwardCommand}" ToolTip="前进" />
+                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="⟳ 刷新"
+                        Command="{Binding RefreshCommand}" ToolTip="刷新当前页面" />
+                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="⌂ 首页"
+                        Command="{Binding GoHomeCommand}" ToolTip="回到该站点配置的首页地址" />
+                <Border DockPanel.Dock="Left" Width="1" Margin="8,4" Background="#E5E7EB" />
+
+                <ListBox x:Name="SiteStrip"
+                         ItemsSource="{Binding Sites}"
+                         ItemContainerStyle="{StaticResource SiteItemContainer}"
+                         ItemTemplate="{StaticResource SiteItemTemplate}"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Padding="0"
+                         SelectionMode="Single"
+                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.CanContentScroll="False"
+                         SelectionChanged="OnSiteSelectionChanged">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
+        <!-- 行 1：加载进度 -->
+        <ProgressBar Grid.Row="1" Height="3" Minimum="0" Maximum="100"
+                     IsIndeterminate="True"
+                     Foreground="#2563EB" BorderThickness="0"
+                     Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
+
+        <!-- 行 2：WebView2 不可用时的安装引导 -->
+        <Border Grid.Row="2" Background="#FEF3C7" BorderBrush="#FCD34D" BorderThickness="0,0,0,1"
+                Padding="12,8"
+                Visibility="{Binding HasInitializationError, Converter={StaticResource BoolToVisibility}}">
+            <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right" Style="{StaticResource ToolButton}" MinWidth="96" Content="打开下载页"
+                        Click="OnDownloadRuntimeClick" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource ToolButton}" MinWidth="110" Content="复制下载地址"
+                        Click="OnCopyRuntimeUrlClick" />
+                <TextBlock Text="{Binding InitializationError}" TextWrapping="Wrap" Foreground="#92400E" />
+            </DockPanel>
+        </Border>
+
+        <!-- 行 3：内容区 —— 每个站点一个 WebView2，切换时只更换承载的控件 -->
+        <Grid Grid.Row="3">
+            <ContentControl x:Name="ContentHost"
+                            Visibility="{Binding HasInitializationError, Converter={StaticResource InverseBoolToVisibility}}" />
+
+            <StackPanel x:Name="EmptyPanel" HorizontalAlignment="Center" VerticalAlignment="Center"
+                        Visibility="{Binding HasSites, Converter={StaticResource InverseBoolToVisibility}}">
+                <TextBlock Text="还没有任何聊天站点" FontSize="18" Foreground="#6B7280" HorizontalAlignment="Center" />
+                <TextBlock Margin="0,8,0,0" Foreground="#9CA3AF" HorizontalAlignment="Center"
+                           Text="点击下方按钮添加网址，或直接编辑站点清单文件" />
+                <TextBlock Margin="0,2,0,0" Foreground="#9CA3AF" HorizontalAlignment="Center"
+                           Text="{Binding SitesFilePath}" />
+                <Button Style="{StaticResource ToolButton}" MinWidth="120" Content="打开站点管理" Margin="0,16,0,0"
+                        HorizontalAlignment="Center" Click="OnManageSitesClick" />
+            </StackPanel>
+
+            <!-- WebView2 释放时的过渡容器：不可见、不参与布局 -->
+            <Grid x:Name="RetireArea" Width="0" Height="0" Visibility="Collapsed"
+                  HorizontalAlignment="Left" VerticalAlignment="Top" />
+        </Grid>
+    </Grid>
+</Window>
