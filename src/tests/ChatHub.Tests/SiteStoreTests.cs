@@ -19,8 +19,14 @@ public sealed class SiteStoreTests : TestBase
 
         Assert.AreEqual(0, skipped);
         Assert.HasCount(SeedCount, sites);
-        Assert.AreEqual("豆包", sites[0].Name);
-        Assert.AreEqual("https://www.doubao.com/chat/", sites[0].Url);
+        CollectionAssert.AreEqual(
+            SiteStore.CreateDefaults().Select(s => s.Name).ToArray(),
+            sites.Select(s => s.Name).ToArray(),
+            "首次运行应按定义顺序写入全部默认站点");
+        CollectionAssert.AreEqual(
+            SiteStore.CreateDefaults().Select(s => s.Url).ToArray(),
+            sites.Select(s => s.Url).ToArray(),
+            "首次运行写入的网址应与默认站点一致");
         Assert.IsTrue(File.Exists(SitesFile), "首次运行应把默认站点写入 sites.txt");
     }
 

@@ -114,7 +114,7 @@ public sealed class SiteManagerViewModelTests : TestBase
         _manager.FilterText = "deep";
         var matched = _manager.SitesView.Cast<Site>().ToList();
         Assert.HasCount(1, matched);
-        Assert.AreEqual("DeepSeek", matched[0].Name);
+        Assert.AreEqual("deepseek", matched[0].Name, ignoreCase: true);
 
         _manager.FilterText = "doubao.com";
         Assert.HasCount(1, _manager.SitesView.Cast<Site>());

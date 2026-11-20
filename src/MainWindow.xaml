@@ -13,7 +13,7 @@
         <views:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
 
         <Style x:Key="ToolButton" TargetType="Button">
-            <Setter Property="MinWidth" Value="60" />
+            <Setter Property="MinWidth" Value="30" />
             <Setter Property="Height" Value="30" />
             <Setter Property="Margin" Value="2,0" />
             <Setter Property="Padding" Value="10,0" />
@@ -206,13 +206,13 @@
                         ToolTip="添加、修改、查询、删除站点（清单文件：%AppData%\ChatHub\sites.txt）" />
                 <Border DockPanel.Dock="Right" Width="1" Margin="8,4" Background="#E5E7EB" />
 
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="← 后退"
+                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="←"
                         Command="{Binding GoBackCommand}" ToolTip="后退" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="→ 前进"
+                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="→"
                         Command="{Binding GoForwardCommand}" ToolTip="前进" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="⟳ 刷新"
+                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="⟳"
                         Command="{Binding RefreshCommand}" ToolTip="刷新当前页面" />
-                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="⌂ 首页"
+                <Button DockPanel.Dock="Left" Style="{StaticResource ToolButton}" Content="⌂"
                         Command="{Binding GoHomeCommand}" ToolTip="回到该站点配置的首页地址" />
                 <Border DockPanel.Dock="Left" Width="1" Margin="8,4" Background="#E5E7EB" />
 

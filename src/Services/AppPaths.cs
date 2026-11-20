@@ -27,4 +27,8 @@ public static class AppPaths
 
     /// <summary>升级脚本的日志文件；升级失败时可从这里排查。</summary>
     public static string UpgradeLogFile => Path.Combine(UpdateFolder, "upgrade.log");
+
+    /// <summary>主窗口的位置/大小/最大化状态；机器本地状态，不随漫游配置走。</summary>
+    public static string WindowPlacementFile =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ChatHub", "window.json");
 }

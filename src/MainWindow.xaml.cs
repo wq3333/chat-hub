@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using ChatHub.Models;
@@ -14,13 +15,19 @@ public partial class MainWindow : Window
     private readonly MainWindowViewModel _viewModel;
     private readonly WebViewPool _pool;
     private readonly InAppTabHost _tabHost;
+    private readonly WindowPlacementStore _windowPlacementStore = new();
     private SiteManagerWindow? _siteManagerWindow;
     private AboutWindow? _aboutWindow;
+    private WindowState _lastNonMinimizedState = WindowState.Normal;
     private bool _disposed;
 
     public MainWindow()
     {
         InitializeComponent();
+
+        // 先决定初始窗口状态：有有效记录就恢复，没有就默认最大化（全屏）。
+        ApplySavedWindowPlacement();
+        StateChanged += OnWindowStateChanged;
 
         var store = new SiteStore();
         var viewModel = new MainWindowViewModel(store);
@@ -182,6 +189,8 @@ public partial class MainWindow : Window
         }
 
         _disposed = true;
+        SaveWindowPlacement();
+        StateChanged -= OnWindowStateChanged;
         _viewModel.SiteActivated -= OnSiteActivated;
         _viewModel.TabActivated -= OnTabActivated;
         _viewModel.ContentCleared -= OnContentCleared;
@@ -189,5 +198,90 @@ public partial class MainWindow : Window
         _siteManagerWindow?.Close();
         _aboutWindow?.Close();
         _viewModel.Dispose();
+    }
+
+    /// <summary>
+    /// 恢复上次的窗口位置/大小；没有记录、记录损坏、或上次的显示器已不在时，默认最大化。
+    /// </summary>
+    private void ApplySavedWindowPlacement()
+    {
+        var placement = _windowPlacementStore.Load();
+        if (placement is null)
+        {
+            MaximizeByDefault();
+            return;
+        }
+
+        // VirtualScreen 覆盖所有显示器，窗口可以跨屏或位于副屏。
+        var screenLeft = SystemParameters.VirtualScreenLeft;
+        var screenTop = SystemParameters.VirtualScreenTop;
+        var screenWidth = SystemParameters.VirtualScreenWidth;
+        var screenHeight = SystemParameters.VirtualScreenHeight;
+
+        if (!placement.IsOnScreen(screenLeft, screenTop, screenWidth, screenHeight))
+        {
+            // 例如上次在副屏，本次副屏被拔掉：不要显示到看不见的地方。
+            MaximizeByDefault();
+            return;
+        }
+
+        var clamped = placement.ClampInto(screenLeft, screenTop, screenWidth, screenHeight);
+
+        // 必须先设 Manual，否则 CenterScreen 会覆盖掉恢复的位置。
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        Left = clamped.Left;
+        Top = clamped.Top;
+        Width = Math.Max(clamped.Width, MinWidth);
+        Height = Math.Max(clamped.Height, MinHeight);
+        WindowState = clamped.IsMaximized ? WindowState.Maximized : WindowState.Normal;
+        _lastNonMinimizedState = WindowState;
+    }
+
+    private void MaximizeByDefault()
+    {
+        WindowState = WindowState.Maximized;
+        _lastNonMinimizedState = WindowState.Maximized;
+    }
+
+    private void OnWindowStateChanged(object? sender, EventArgs e)
+    {
+        // 最小化时保留最小化之前的状态，关闭时据此决定下次是否最大化。
+        if (WindowState != WindowState.Minimized)
+        {
+            _lastNonMinimizedState = WindowState;
+        }
+    }
+
+    /// <summary>关闭前记录普通尺寸/位置与最大化状态；写入失败绝不阻塞退出。</summary>
+    private void SaveWindowPlacement()
+    {
+        try
+        {
+            var state = WindowState == WindowState.Minimized ? _lastNonMinimizedState : WindowState;
+
+            // RestoreBounds 保留“最大化/最小化之前”的普通窗口尺寸，这正是下次启动需要的。
+            var bounds = WindowState == WindowState.Normal
+                ? new Rect(Left, Top, Width, Height)
+                : RestoreBounds;
+
+            if (bounds.IsEmpty ||
+                !double.IsFinite(bounds.Left) || !double.IsFinite(bounds.Top) ||
+                !double.IsFinite(bounds.Width) || !double.IsFinite(bounds.Height) ||
+                bounds.Width <= 0 || bounds.Height <= 0)
+            {
+                return;
+            }
+
+            _windowPlacementStore.Save(new WindowPlacement(
+                bounds.Left,
+                bounds.Top,
+                bounds.Width,
+                bounds.Height,
+                state == WindowState.Maximized));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 窗口状态只是便利功能，写不了就算了。
+        }
     }
 }
