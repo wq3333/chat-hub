@@ -217,6 +217,11 @@ publish/
 *.pubxml
 *.publishproj
 
+# ChatHub: the FolderProfile only contains folder-publish switches (no secrets).
+# It must be committed so build.cmd and the GitHub Actions release job use the
+# exact same configuration. This negation overrides the *.pubxml rule above.
+!src/Properties/PublishProfiles/FolderProfile.pubxml
+
 # Microsoft Azure Web App publish settings. Comment the next line if you want to
 # checkin your Azure Web App publish settings, but sensitive information contained
 # in these scripts will be unencrypted

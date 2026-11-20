@@ -77,6 +77,17 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Verify FolderProfile
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          $profile = 'src/Properties/PublishProfiles/FolderProfile.pubxml'
+          if (-not (Test-Path $profile)) {
+              throw "Publish profile not found at $profile. It must be committed (see the negation for *.pubxml in .gitignore)."
+          }
+          Write-Host "Using publish profile: $profile"
+          Get-Content -LiteralPath $profile
+
       - name: Publish with FolderProfile
         if: steps.version.outputs.changed == 'true'
         shell: pwsh
