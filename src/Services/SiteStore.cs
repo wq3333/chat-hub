@@ -25,8 +25,10 @@ public class SiteStore
     /// <summary>首次运行写入的默认站点。</summary>
     public static IReadOnlyList<Site> CreateDefaults() =>
     [
-        new Site("doubao01", "豆包", "https://www.doubao.com/chat/"),
-        new Site("deepseek", "DeepSeek", "https://chat.deepseek.com/"),
+        new Site("deepseek", "deepseek", "https://chat.deepseek.com/"),
+        new Site("chatgpt", "chatgpt", "https://chatgpt.com/"),
+        new Site("claude", "claude", "https://claude.ai/new"),
+        new Site("doubao", "豆包", "https://www.doubao.com/chat/"),
         new Site("bigmodel", "智谱", "https://open.bigmodel.cn/trialcenter/modeltrial/text"),
         new Site("qianwen", "千问", "https://www.qianwen.com/"),
         new Site("kimi", "kimi", "https://www.kimi.com/"),

@@ -12,7 +12,7 @@
     <ApplicationIcon>assets\favicon.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <!-- 发布流水线以这一行作为发版依据：只有它变化时才会构建并发布 release。 -->
-    <Version>0.0.4</Version>
+    <Version>0.0.5</Version>
   </PropertyGroup>
 
   <ItemGroup>

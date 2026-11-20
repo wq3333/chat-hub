@@ -46,6 +46,11 @@ rem ------------------------------------------------------------
 rem  upgrade: copy this script to TEMP and relaunch it detached.
 rem  The install directory (including this file) is replaced by
 rem  the detached copy, so the running script is never overwritten.
+rem
+rem  Use "start /b cmd /c" instead of "start" directly: starting a .bat
+rem  creates a "cmd /K" console that stays open after the update, which
+rem  looks like a black cmd window. /b keeps the (hidden) parent console
+rem  and /c makes the updater process exit when it is done.
 rem ------------------------------------------------------------
 :start_detached
 if not defined CHATHUB_INSTALL_DIR set "CHATHUB_INSTALL_DIR=%~dp0"
@@ -62,7 +67,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-start "" /min "%CHATHUB_TEMP_BAT%" --detached
+start "" /b "%COMSPEC%" /c ""%CHATHUB_TEMP_BAT%" --detached"
 exit /b 0
 
 rem ------------------------------------------------------------
