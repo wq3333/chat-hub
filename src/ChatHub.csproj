@@ -11,6 +11,8 @@
     <RootNamespace>ChatHub</RootNamespace>
     <ApplicationIcon>assets\favicon.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!-- 发布流水线以这一行作为发版依据：只有它变化时才会构建并发布 release。 -->
+    <Version>0.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +28,13 @@
     <!-- 图标需要作为 WPF 资源打进程序集，窗口的 Icon="assets/favicon.ico" 才能解析到 -->
     <Resource Include="assets\favicon.ico" />
     <None Include="assets\favicon.svg" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 升级脚本必须跟着 exe 一起发布：关于窗口会按 AppContext.BaseDirectory 找到它。 -->
+    <None Update="upgrade.bat"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- 测试工程位于 tests/ 下，不应被应用工程的默认通配符收进编译 -->

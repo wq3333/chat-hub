@@ -104,10 +104,91 @@
                        MaxWidth="180"
                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
         </DataTemplate>
+
+        <!-- 关闭临时标签页的小按钮：不做焦点目标，样式在选中态下也保持可读 -->
+        <Style x:Key="InAppTabCloseButton" TargetType="Button">
+            <Setter Property="Width" Value="18" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="CloseBd" CornerRadius="3" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CloseBd" Property="Background" Value="#33000000" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 临时标签页条目：与站点条目一样用 IsSelected 双向绑定 IsActive，点击由 SelectionChanged 接管 -->
+        <Style x:Key="InAppTabItemContainer" TargetType="ListBoxItem">
+            <Setter Property="IsSelected" Value="{Binding IsActive, Mode=TwoWay}" />
+            <Setter Property="ToolTip" Value="{Binding Url}" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Margin" Value="3,2" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd"
+                                CornerRadius="14"
+                                Background="#FFFFFF"
+                                BorderBrush="#D1D5DB"
+                                BorderThickness="1"
+                                Padding="12,0"
+                                Height="26"
+                                MinWidth="96">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#EEF2FF" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#A5B4FC" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2563EB" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#1D4ED8" />
+                                <Setter Property="TextElement.Foreground" Value="#FFFFFF" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="InAppTabTemplate">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="{Binding Title}"
+                           TextTrimming="CharacterEllipsis"
+                           MaxWidth="170"
+                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" />
+                <Button Style="{StaticResource InAppTabCloseButton}"
+                        Content="✕"
+                        Margin="8,0,0,0"
+                        Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ListBoxItem}}"
+                        Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                        CommandParameter="{Binding}"
+                        ToolTip="关闭标签页" />
+            </StackPanel>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -117,6 +198,9 @@
         <!-- 行 0：导航按钮 + 全部已添加站点 -->
         <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1" Padding="6,5">
             <DockPanel LastChildFill="True">
+                <Button DockPanel.Dock="Right" Style="{StaticResource ToolButton}" MinWidth="82"
+                        Content="ℹ 关于" Click="OnAboutClick"
+                        ToolTip="查看 GitHub 项目地址、当前版本并检查更新" />
                 <Button DockPanel.Dock="Right" Style="{StaticResource ToolButton}" MinWidth="96"
                         Content="⚙ 管理站点" Click="OnManageSitesClick"
                         ToolTip="添加、修改、查询、删除站点（清单文件：%AppData%\ChatHub\sites.txt）" />
@@ -153,14 +237,38 @@
             </DockPanel>
         </Border>
 
-        <!-- 行 1：加载进度 -->
-        <ProgressBar Grid.Row="1" Height="3" Minimum="0" Maximum="100"
+        <!-- 行 1：临时标签条 —— 新窗口链接产生的页面，与站点池分开管理 -->
+        <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1"
+                Padding="6,4"
+                Visibility="{Binding HasTabs, Converter={StaticResource BoolToVisibility}}">
+            <ListBox x:Name="TabStrip"
+                     ItemsSource="{Binding Tabs}"
+                     ItemContainerStyle="{StaticResource InAppTabItemContainer}"
+                     ItemTemplate="{StaticResource InAppTabTemplate}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Padding="0"
+                     SelectionMode="Single"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.CanContentScroll="False"
+                     SelectionChanged="OnTabSelectionChanged">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
+        </Border>
+
+        <!-- 行 2：加载进度 -->
+        <ProgressBar Grid.Row="2" Height="3" Minimum="0" Maximum="100"
                      IsIndeterminate="True"
                      Foreground="#2563EB" BorderThickness="0"
                      Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}}" />
 
-        <!-- 行 2：WebView2 不可用时的安装引导 -->
-        <Border Grid.Row="2" Background="#FEF3C7" BorderBrush="#FCD34D" BorderThickness="0,0,0,1"
+        <!-- 行 3：WebView2 不可用时的安装引导 -->
+        <Border Grid.Row="3" Background="#FEF3C7" BorderBrush="#FCD34D" BorderThickness="0,0,0,1"
                 Padding="12,8"
                 Visibility="{Binding HasInitializationError, Converter={StaticResource BoolToVisibility}}">
             <DockPanel LastChildFill="True">
@@ -172,13 +280,13 @@
             </DockPanel>
         </Border>
 
-        <!-- 行 3：内容区 —— 每个站点一个 WebView2，切换时只更换承载的控件 -->
-        <Grid Grid.Row="3">
+        <!-- 行 4：内容区 —— 站点页与临时标签页交替挂载，未显示的实例保留在内存中 -->
+        <Grid Grid.Row="4">
             <ContentControl x:Name="ContentHost"
                             Visibility="{Binding HasInitializationError, Converter={StaticResource InverseBoolToVisibility}}" />
 
             <StackPanel x:Name="EmptyPanel" HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{Binding HasSites, Converter={StaticResource InverseBoolToVisibility}}">
+                        Visibility="{Binding ShowEmptyState, Converter={StaticResource BoolToVisibility}}">
                 <TextBlock Text="还没有任何聊天站点" FontSize="18" Foreground="#6B7280" HorizontalAlignment="Center" />
                 <TextBlock Margin="0,8,0,0" Foreground="#9CA3AF" HorizontalAlignment="Center"
                            Text="点击下方按钮添加网址，或直接编辑站点清单文件" />

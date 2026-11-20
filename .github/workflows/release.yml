@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/ChatHub.csproj
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Version tag
+        id: version
+        shell: pwsh
+        env:
+          EVENT_BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Get-CsprojVersion([string] $text) {
+              if ([string]::IsNullOrWhiteSpace($text)) { return $null }
+              $match = [regex]::Match($text, '<Version>\s*([^<]+?)\s*</Version>')
+              if ($match.Success) { return $match.Groups[1].Value.Trim() }
+              return $null
+          }
+
+          $current = Get-CsprojVersion (Get-Content -Raw -LiteralPath 'src/ChatHub.csproj')
+          if (-not $current) {
+              throw 'No <Version> tag found in src/ChatHub.csproj.'
+          }
+
+          $previous = $null
+          $before = $env:EVENT_BEFORE
+          if ($before -and $before -notmatch '^0+$') {
+              git cat-file -e "${before}:src/ChatHub.csproj" 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                  $previous = Get-CsprojVersion (git show "${before}:src/ChatHub.csproj" | Out-String)
+              }
+          }
+
+          $changed = ($previous -ne $current)
+          if ($env:EVENT_NAME -eq 'workflow_dispatch') {
+              $changed = $true
+          }
+
+          "changed=$($changed.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "version=$current" >> $env:GITHUB_OUTPUT
+          "previous=$previous" >> $env:GITHUB_OUTPUT
+
+          if ($changed) {
+              Write-Host "Version changed: '$previous' -> '$current'. Release will be built."
+              "### Version changed: ``$previous`` -> ``$current``" >> $env:GITHUB_STEP_SUMMARY
+          }
+          else {
+              Write-Host "Version is unchanged ('$current'). Build and release are skipped."
+              "### Version unchanged (``$current``); skipped." >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Set up .NET
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish with FolderProfile
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $publishDir = 'src/bin/Release/net10.0-windows/publish/win-x64'
+
+          if (Test-Path $publishDir) {
+              Remove-Item -Recurse -Force $publishDir
+          }
+
+          dotnet publish 'src/ChatHub.csproj' -p:PublishProfile=FolderProfile
+          if ($LASTEXITCODE -ne 0) {
+              throw "dotnet publish failed with exit code $LASTEXITCODE."
+          }
+
+          foreach ($required in @('ChatHub.exe', 'upgrade.bat')) {
+              if (-not (Test-Path (Join-Path $publishDir $required))) {
+                  throw "Publish output is missing $required."
+              }
+          }
+
+          $exe = Get-Item (Join-Path $publishDir 'ChatHub.exe')
+          "### Publish output" >> $env:GITHUB_STEP_SUMMARY
+          "- ``$publishDir\ChatHub.exe`` ($([math]::Round($exe.Length / 1MB, 1)) MB)" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Create win-x64.zip
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $publishDir = 'src/bin/Release/net10.0-windows/publish/win-x64'
+
+          if (Test-Path 'win-x64.zip') {
+              Remove-Item -Force 'win-x64.zip'
+          }
+
+          Compress-Archive -Path (Join-Path $publishDir '*') -DestinationPath 'win-x64.zip' -Force
+          $zip = Get-Item 'win-x64.zip'
+          "### Package" >> $env:GITHUB_STEP_SUMMARY
+          "- ``win-x64.zip`` ($([math]::Round($zip.Length / 1MB, 1)) MB)" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Publish GitHub release
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = "v$env:VERSION"
+
+          # Release notes are the full message of the commit that triggered this run.
+          $notes = (git log -1 --pretty=%B) -join "`n"
+          Set-Content -LiteralPath 'release-notes.md' -Value $notes -Encoding utf8
+
+          gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+              Write-Host "Release $tag already exists; deleting it before recreating."
+              gh release delete $tag --yes --cleanup-tag
+              if ($LASTEXITCODE -ne 0) {
+                  throw "Failed to delete the existing release $tag."
+              }
+          }
+
+          # A tag can exist without a release (for example a manually created tag).
+          # Remove it so --target can point the tag at the current commit.
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/tags/$tag" 2>$null
+
+          gh release create $tag 'win-x64.zip' --title "ChatHub $tag" --notes-file 'release-notes.md' --target $env:TARGET_SHA
+          if ($LASTEXITCODE -ne 0) {
+              throw "Failed to create the GitHub release $tag."
+          }
+
+          "### Release ``$tag`` created with ``win-x64.zip``" >> $env:GITHUB_STEP_SUMMARY

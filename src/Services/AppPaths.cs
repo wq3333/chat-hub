@@ -17,4 +17,14 @@ public static class AppPaths
     /// <summary>WebView2 用户数据目录：%LocalAppData%\ChatHub\WebView2（浏览器缓存属机器本地数据，不漫游）。</summary>
     public static string WebView2UserDataFolder =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ChatHub", "WebView2");
+
+    /// <summary>应用内更新目录：%LocalAppData%\ChatHub\update。</summary>
+    public static string UpdateFolder =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ChatHub", "update");
+
+    /// <summary>下载完成的更新包；upgrade.bat 默认也读这个位置。</summary>
+    public static string UpdateZipFile => Path.Combine(UpdateFolder, "win-x64.zip");
+
+    /// <summary>升级脚本的日志文件；升级失败时可从这里排查。</summary>
+    public static string UpgradeLogFile => Path.Combine(UpdateFolder, "upgrade.log");
 }
